@@ -2,7 +2,7 @@
 #define _LTC_
 
 
-#include <glm/glm.hpp>
+#include "glm\glm.hpp"
 using namespace glm;
 
 #include <iostream>
@@ -12,6 +12,9 @@ struct LTC {
 
 	// lobe amplitude
 	float amplitude;
+
+	// lobe*fresnel amplitude
+	float fresnelAmplitude;
 
 	// parametric representation
 	float m11, m22, m13, m23;
@@ -25,10 +28,9 @@ struct LTC {
 	LTC()
 	{
 		amplitude = 1;
-		m11 = 1;
-		m22 = 1;
-		m13 = 0;
-		m23 = 0;
+		fresnelAmplitude = 1;
+		m11 = m22 = 1;
+		m13 = m23 = 0;
 		X = vec3(1,0,0);
 		Y = vec3(0,1,0);
 		Z = vec3(0,0,1);
@@ -38,6 +40,7 @@ struct LTC {
 	void copy(const LTC& ltc)
 	{
 		this->amplitude = ltc.amplitude;
+		this->fresnelAmplitude = ltc.fresnelAmplitude;
 		this->m11 = ltc.m11;
 		this->m22 = ltc.m22;
 		this->m13 = ltc.m13;

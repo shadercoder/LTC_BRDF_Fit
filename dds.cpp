@@ -54,6 +54,9 @@ uint32_t const DDS_RESOURCE_DIMENSION_TEXTURE2D = 3;
 
 bool SaveDDS( char const* path, unsigned format, unsigned texelSizeInBytes, unsigned width, unsigned height, void const* data )
 {
+#ifdef _MSC_VER
+    #pragma warning(disable:4996)
+#endif
     FILE* f = fopen( path, "wb" );
     if ( !f )
     {

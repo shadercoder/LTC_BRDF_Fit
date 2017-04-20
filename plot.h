@@ -1,7 +1,7 @@
 #ifndef _PLOT_
 #define _PLOT_
 
-#include <glm/glm.hpp>
+#include "glm\glm.hpp"
 using namespace glm;
 
 #include "Cimg.h"

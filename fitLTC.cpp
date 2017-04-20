@@ -1,6 +1,6 @@
 // fitLTC.cpp : Defines the entry point for the console application.
 //
-#include <glm/glm.hpp>
+#include "glm\glm.hpp"
 using namespace glm;
 
 #include <algorithm>
@@ -43,6 +43,39 @@ float computeNorm(const Brdf& brdf, const vec3& V, const float alpha)
 		// eval
 		float pdf;
 		float eval = brdf.eval(V, L, alpha, pdf);
+
+		// accumulate
+		norm += (pdf > 0) ? eval / pdf : 0.0f;
+	}
+
+	return norm / (float)(Nsample*Nsample);
+}
+
+// compute the norm of the BRDF with Fresnel
+float computeNormFresnel(const Brdf& brdf, const vec3& V, const float alpha)
+{
+	float norm = 0.0;
+
+	for(int j = 0 ; j < Nsample ; ++j)
+	for(int i = 0 ; i < Nsample ; ++i)
+	{
+		const float U1 = (i+0.5f)/(float)Nsample;
+		const float U2 = (j+0.5f)/(float)Nsample;
+
+		// sample
+		const vec3 L = brdf.sample(V, alpha, U1, U2);
+
+        auto len = length(L);
+
+		// eval
+		float pdf;
+		float eval = brdf.eval(V, L, alpha, pdf);
+
+		const float LdotV = clamp(dot(L, V), 0.0f, 1.0f);
+
+		float F = (1 - LdotV) * (1 - LdotV);
+		F = F * F * (1 - LdotV);
+		eval *= F;
 
 		// accumulate
 		norm += (pdf > 0) ? eval / pdf : 0.0f;
@@ -206,7 +239,8 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 		cout << "alpha = " << alpha << "\t theta = " << theta << endl;
 		cout << endl;
 
-		ltc.amplitude = computeNorm(brdf, V, alpha); 
+		ltc.amplitude = computeNorm(brdf, V, alpha);
+		ltc.fresnelAmplitude = computeNormFresnel(brdf, V, alpha);
 		const vec3 averageDir = computeAverageDir(brdf, V, alpha);		
 		bool isotropic;
 
@@ -258,14 +292,14 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 		// copy data
 		tab[a + t*N] = ltc.M;
 		tabAmplitude[a + t*N][0] = ltc.amplitude;
-		tabAmplitude[a + t*N][1] = 0;
+		tabAmplitude[a + t*N][1] = ltc.fresnelAmplitude;
 
-		// kill useless coefs in matrix and normalize
+		// kill useless coefs in matrix
 		tab[a+t*N][0][1] = 0;
 		tab[a+t*N][1][0] = 0;
 		tab[a+t*N][2][1] = 0;
 		tab[a+t*N][1][2] = 0;
-		tab[a+t*N] = 1.0f / tab[a+t*N][2][2] * tab[a+t*N];
+		// tab[a+t*N] *= 1.0f / tab[a+t*N][2][2]; // Do not normalize
 
 		cout << tab[a+t*N][0][0] << "\t " << tab[a+t*N][1][0] << "\t " << tab[a+t*N][2][0] << endl;
 		cout << tab[a+t*N][0][1] << "\t " << tab[a+t*N][1][1] << "\t " << tab[a+t*N][2][1] << endl;
@@ -279,8 +313,8 @@ int main(int argc, char* argv[])
 {
 	// BRDF to fit
 	BrdfGGX brdf;
-	//BrdfBeckmann brdf;
-	//BrdfDisneyDiffuse brdf;
+	// BrdfBeckmann brdf;
+	// BrdfDisneyDiffuse brdf;
 	
 	// allocate data
 	mat3 * tab = new mat3[N*N];
@@ -290,12 +324,12 @@ int main(int argc, char* argv[])
 	fitTab(tab, tabAmplitude, N, brdf);
 
 	// export in C, matlab and DDS
-	writeTabMatlab(tab, tabAmplitude, N);
 	writeTabC(tab, tabAmplitude, N);
-	writeDDS(tab, tabAmplitude, N);
+	// writeTabMatlab(tab, tabAmplitude, N);
+	// writeDDS(tab, tabAmplitude, N);
 
 	// spherical plots
-	make_spherical_plots(brdf, tab, N);
+	// make_spherical_plots(brdf, tab, N);
 
 	// delete data
 	delete [] tab;

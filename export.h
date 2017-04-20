@@ -16,9 +16,9 @@ void writeTabC(mat3 * tab, vec2 * tabAmplitude, int N)
 	for(int a = 0 ; a < N ; ++a)
 	{
 		file << "{";
-		file << tab[a + t*N][0][0] << ", " << tab[a + t*N][0][1] << ", " << tab[a + t*N][0][2] << ", ";
-		file << tab[a + t*N][1][0] << ", " << tab[a + t*N][1][1] << ", " << tab[a + t*N][1][2] << ", ";
-        file << tab[a + t*N][2][0] << ", " << tab[a + t*N][2][1] << ", " << tab[a + t*N][2][2] << "}";
+		file << tab[a + t*N][0][0] << "f, " << tab[a + t*N][0][1] << "f, " << tab[a + t*N][0][2] << "f, ";
+		file << tab[a + t*N][1][0] << "f, " << tab[a + t*N][1][1] << "f, " << tab[a + t*N][1][2] << "f, ";
+		file << tab[a + t*N][2][0] << "f, " << tab[a + t*N][2][1] << "f, " << tab[a + t*N][2][2] << "f}";
 		if(a != N-1 || t != N-1)
 			file << ", ";
 		file << endl;
@@ -32,20 +32,22 @@ void writeTabC(mat3 * tab, vec2 * tabAmplitude, int N)
 		mat3 Minv = glm::inverse(tab[a + t*N]);
 
 		file << "{";
-		file << Minv[0][0] << ", " << Minv[0][1] << ", " << Minv[0][2] << ", ";
-		file << Minv[1][0] << ", " << Minv[1][1] << ", " << Minv[1][2] << ", ";
-        file << Minv[2][0] << ", " << Minv[2][1] << ", " << Minv[2][2] << "}";
+		file << Minv[0][0] << "f, " << Minv[0][1] << "f, " << Minv[0][2] << "f, ";
+		file << Minv[1][0] << "f, " << Minv[1][1] << "f, " << Minv[1][2] << "f, ";
+		file << Minv[2][0] << "f, " << Minv[2][1] << "f, " << Minv[2][2] << "f}";
 		if(a != N-1 || t != N-1)
 			file << ", ";
 		file << endl;
 	}
 	file << "};" << endl << endl;
 
-	file << "static const float tabAmplitude[size*size] = {" << endl;
+	file << "static const vec2 tabAmplitude[size*size] = {" << endl;
 	for(int t = 0 ; t < N ; ++t)
 	for(int a = 0 ; a < N ; ++a)
 	{
-		file << tabAmplitude[a + t*N][0] << "f";
+		file << "{";
+		file << tabAmplitude[a + t*N][0] << "f, ";
+		file << tabAmplitude[a + t*N][1] << "f}";
 		if(a != N-1 || t != N-1)
 			file << ", ";
 		file << endl;
@@ -70,6 +72,7 @@ void writeTabMatlab(mat3 * tab, vec2 * tabAmplitude, int N)
 		for(int a = 0 ; a < N ; ++a)
 		{
 			file << tabAmplitude[a + t*N][0] << " " ;
+			file << tabAmplitude[a + t*N][1] << " " ;
 		}
 		file << endl;
 	}
@@ -103,6 +106,7 @@ void writeTabMatlab(mat3 * tab, vec2 * tabAmplitude, int N)
 
 void writeDDS(mat3 * tab, vec2 * tabAmplitude, int N)
 {
+	assert(false && "This version does not currently support writing the last component of the matrix.");
 	float * data = new float[N*N*4];
 
 	int n = 0;
