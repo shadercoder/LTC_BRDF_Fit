@@ -23,7 +23,7 @@ const int N = 64;
 // number of samples used to compute the error during fitting
 const int Nsample = 50;
 // minimal roughness (avoid singularities)
-const float MIN_ALPHA = 0.0001f;
+const float MIN_ALPHA = 0.00001f;
 
 
 // compute the norm (albedo) of the BRDF
@@ -167,24 +167,21 @@ struct FitLTC
 
 	void update(const float * params)
 	{
-		float m11 = std::max<float>(params[0], MIN_ALPHA);
-		float m22 = std::max<float>(params[1], MIN_ALPHA);
+		float m11 = std::max<float>(params[0], 1e-7f);
+		float m22 = std::max<float>(params[1], 1e-7f);
 		float m13 = params[2];
-		float m23 = params[3];
 
 		if(isotropic)
 		{
 			ltc.m11 = m11;
 			ltc.m22 = m11;
 			ltc.m13 = 0.0f;
-			ltc.m23 = 0.0f;
 		}
 		else
 		{
 			ltc.m11 = m11;
 			ltc.m22 = m22;
 			ltc.m13 = m13;
-			ltc.m23 = m23;
 		}
 		ltc.update();
 	}
@@ -207,29 +204,31 @@ struct FitLTC
 // refine first guess by exploring parameter space
 void fit(LTC& ltc, const Brdf& brdf, const vec3& V, const float alpha, const float epsilon = 0.05f, const bool isotropic=false)
 {
-	float startFit[4] = { ltc.m11, ltc.m22, ltc.m13, ltc.m23 };
-	float resultFit[4];
+	float startFit[3] = { ltc.m11, ltc.m22, ltc.m13 };
+	float resultFit[3];
 
 	FitLTC fitter(ltc, brdf, isotropic, V, alpha);
 
 	// Find best-fit LTC lobe (scale, alphax, alphay)
-	float error = NelderMead<4>(resultFit, startFit, epsilon, 1e-5f, 100, fitter);
+	float error = NelderMead<3>(resultFit, startFit, epsilon, 1e-5f, 100, fitter);
 
 	// Update LTC with best fitting values
 	fitter.update(resultFit);
 }
 
 // fit data
-void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
+void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf, bool preRotate)
 {
 	LTC ltc;
 
 	// loop over theta and alpha
-	for(int a = N-1 ; a >= 0   ; --a)
-	for(int t =   0 ; t <= N-1 ; ++t)
+	for(int a = N-1 ; a >= 0 ; --a)
+	for(int t = N-1 ; t >= 0 ; --t)
 	{
-		float theta = std::min<float>(1.57f, t / float(N-1) * 1.57079f);
-		const vec3 V = vec3(sinf(theta),0,cosf(theta));
+		// parameterised by cos(theta)
+		float ct = t / float(N-1);
+		float theta = std::min<float>(1.57f, acosf(ct));
+		const vec3 V = vec3(sinf(theta), 0, cosf(theta));
 
 		// alpha = roughness^2
 		float roughness = a / float(N-1);
@@ -247,7 +246,7 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 		// 1. first guess for the fit
 		// init the hemisphere in which the distribution is fitted
 		// if theta == 0 the lobe is rotationally symmetric and aligned with Z = (0 0 1)
-		if(t == 0)
+		if(t == N-1)
 		{
 			ltc.X = vec3(1,0,0);
 			ltc.Y = vec3(0,1,0);
@@ -260,12 +259,11 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 			}
 			else // init with roughness of previous fit
 			{
-				ltc.m11 = std::max<float>(tab[a+1+t*N][0][0], MIN_ALPHA);
-				ltc.m22 = std::max<float>(tab[a+1+t*N][1][1], MIN_ALPHA);
+				ltc.m11 = tab[a+1+t*N][0][0];
+				ltc.m22 = tab[a+1+t*N][1][1];
 			}
 			
 			ltc.m13 = 0;
-			ltc.m23 = 0;
 			ltc.update();
 
 			isotropic = true;
@@ -273,7 +271,7 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 		// otherwise use previous configuration as first guess
 		else
 		{
-			vec3 L = normalize(averageDir);
+			vec3 L = averageDir;
 			vec3 T1(L.z,0,-L.x);
 			vec3 T2(0,1,0);
 			ltc.X = T1;
@@ -299,7 +297,10 @@ void fitTab(mat3 * tab, vec2 * tabAmplitude, const int N, const Brdf& brdf)
 		tab[a+t*N][1][0] = 0;
 		tab[a+t*N][2][1] = 0;
 		tab[a+t*N][1][2] = 0;
+
 		// tab[a+t*N] *= 1.0f / tab[a+t*N][2][2]; // Do not normalize
+
+		tab[a+t*N][2][1] = preRotate ? ct : 0;
 
 		cout << tab[a+t*N][0][0] << "\t " << tab[a+t*N][1][0] << "\t " << tab[a+t*N][2][0] << endl;
 		cout << tab[a+t*N][0][1] << "\t " << tab[a+t*N][1][1] << "\t " << tab[a+t*N][2][1] << endl;
@@ -321,10 +322,11 @@ int main(int argc, char* argv[])
 	vec2 * tabAmplitude = new vec2[N*N];
 	
 	// fit
-	fitTab(tab, tabAmplitude, N, brdf);
+	fitTab(tab, tabAmplitude, N, brdf, false);
 
-	// export in C, matlab and DDS
+	// export in C, JS, Matlab and DDS
 	writeTabC(tab, tabAmplitude, N);
+	// writeJS(tab, tabAmplitude, N);
 	// writeTabMatlab(tab, tabAmplitude, N);
 	// writeDDS(tab, tabAmplitude, N);
 

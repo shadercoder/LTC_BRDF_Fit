@@ -1,6 +1,71 @@
 #ifndef _EXPORT_
 #define _EXPORT_
 
+// export data to Javascript
+void writeJS(mat3 * tab, vec2 * tabAmplitude, int N)
+{
+	ofstream file("results/ltc_tables_opt_2.js");
+
+	file << "var g_ltc_mat_2 = [";
+
+	int n = 0;
+	for (int i = 0; i < N*N; ++i, n += 4)
+	{
+		const mat3& m = tab[i];
+
+		float a = m[0][0];
+		float b = m[0][2];
+		float c = m[1][1];
+		float d = m[2][0];
+		float e = m[2][2];
+
+		float ct = m[2][1];
+		float st = sqrt(1.0 - ct*ct);
+
+		// rescaled inverse of m:
+		// a 0 b   inverse  c*e     0     -b*c
+		// 0 c 0     ==>     0  a*e - b*d   0
+		// d 0 e           -c*d     0      a*c
+
+		float t0 =  c*e;
+		float t1 = -b*c;
+		float t2 =  a*e - b*d;
+		float t3 = -c*d;
+		float t4 =  a*c;
+
+		// T1 = (t3 st - t0 ct) n + t0 v;
+		// T2 = t2 Cross[n, v];
+		// T3 = (t4 st - t1 ct) n + t1 v;
+
+		// pre-rotate t3 and t4
+		t3 = t3*st - t0*ct;
+		t4 = t4*st - t1*ct;
+
+		// store the variable terms
+		file << t0;
+		file << ", ";
+		file << t1;
+		file << ", ";
+		file << t2;
+		file << ", ";
+		file << t3;
+		file << ", ";
+
+		// TEMP: copy into magnitude texture for now
+		tabAmplitude[i].x = t4;
+	}
+	file << "];" << endl;
+
+	file << "var g_ltc_mag_2 = [";
+	for (int i = 0; i < N*N; ++i, n += 4)
+	{
+		file << tabAmplitude[i].x << ", ";
+	}
+	file << "];" << endl;
+
+	file.close();
+}
+
 // export data in C
 void writeTabC(mat3 * tab, vec2 * tabAmplitude, int N)
 {
