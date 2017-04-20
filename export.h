@@ -91,16 +91,29 @@ void writeTabC(mat3 * tab, vec2 * tabAmplitude, int N)
 	file << "};" << endl << endl;
 
 	file << "static const mat33 tabMinv[size*size] = {" << endl;
-	for(int t = 0 ; t < N ; ++t)
-	for(int a = 0 ; a < N ; ++a)
+	for (int i = 0; i < N*N; ++i)
 	{
-		mat3 Minv = glm::inverse(tab[a + t*N]);
+        const mat3& m = tab[i];
+
+		float a = m[0][0];
+		float b = m[0][2];
+		float c = m[1][1];
+		float d = m[2][0];
+		float e = m[2][2];
+
+		float ct = m[2][1];
+		float st = sqrt(1.0 - ct*ct);
+
+		// rescaled inverse of m (det(m) = 1):
+		// a 0 b   inverse  c*e     0     -b*c
+		// 0 c 0     ==>     0  a*e - b*d   0
+		// d 0 e           -c*d     0      a*c
 
 		file << "{";
-		file << Minv[0][0] << "f, " << Minv[0][1] << "f, " << Minv[0][2] << "f, ";
-		file << Minv[1][0] << "f, " << Minv[1][1] << "f, " << Minv[1][2] << "f, ";
-		file << Minv[2][0] << "f, " << Minv[2][1] << "f, " << Minv[2][2] << "f}";
-		if(a != N-1 || t != N-1)
+		file <<  c*e << "f, " << "0"       << "f, " << -b*c << "f, ";
+		file <<  "0" << "f, " << a*e - b*d << "f, " <<  "0" << "f, ";
+		file << -c*d << "f, " << "0"       << "f, " <<  a*c << "f}";
+		if(i != (N*N-1))
 			file << ", ";
 		file << endl;
 	}
